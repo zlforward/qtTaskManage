@@ -1,0 +1,12 @@
+# Set default behavior for text files
+* text=auto
+
+# Explicitly declare text files you want to always normalize and convert to CRLF line endings
+*.c text
+*.cpp text
+*.h text
+*.ui text
+*.md text
+*.txt text
+.gitignore text
+.gitattributes text 
