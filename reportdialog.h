@@ -12,6 +12,7 @@
 #include <QBarCategoryAxis>
 #include <QValueAxis>
 #include "taskcard.h"
+#include <QString>
 
 QT_CHARTS_USE_NAMESPACE
 

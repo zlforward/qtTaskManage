@@ -32,12 +32,18 @@
     <ClCompile Include="taskcard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="reportdialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="mainwindow.h">
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="taskcard.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="reportdialog.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>

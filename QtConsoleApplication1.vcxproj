@@ -67,11 +67,11 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Qt\Qt5.12.12\5.12.12\msvc2017_64\include;C:\Qt\Qt5.12.12\5.12.12\msvc2017_64\include\QtWidgets;C:\Qt\Qt5.12.12\5.12.12\msvc2017_64\include\QtSql;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Qt\Qt5.12.12\5.12.12\msvc2017_64\include;C:\Qt\Qt5.12.12\5.12.12\msvc2017_64\include\QtWidgets;C:\Qt\Qt5.12.12\5.12.12\msvc2017_64\include\QtSql;C:\Qt\Qt5.12.12\5.12.12\msvc2017_64\include\QtCharts;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>C:\Qt\Qt5.12.12\5.12.12\msvc2017_64\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Qt5Cored.lib;Qt5Widgetsd.lib;Qt5Sqld.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Qt5Cored.lib;Qt5Widgetsd.lib;Qt5Sqld.lib;Qt5Chartsd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
@@ -101,6 +101,7 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="mainwindow.cpp" />
+    <ClCompile Include="reportdialog.cpp" />
     <ClCompile Include="taskcard.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -111,6 +112,9 @@
   </ItemGroup>
   <ItemGroup>
     <QtUic Include="mainwindow.ui" />
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="reportdialog.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

@@ -1,4 +1,4 @@
-#include "reportdialog.h"
+﻿#include "reportdialog.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>
@@ -128,6 +128,29 @@ void ReportDialog::createPriorityChart(const QMap<TaskCard::Priority, int> &prio
     m_priorityChartView->setChart(chart);
 }
 
+void ReportDialog::saveChartToPdf(QChartView *chartView, const QString &filePath)
+{
+    if (!chartView || !chartView->chart()) {
+        qWarning() << "Chart view or chart is null, cannot save to PDF.";
+        QMessageBox::warning(this, QString::fromLocal8Bit("错误"), QString::fromLocal8Bit("无法导出图表：图表视图无效。"));
+        return;
+    }
+
+    QPdfWriter pdfWriter(filePath);
+    pdfWriter.setPageSize(QPagedPaintDevice::A4);
+    pdfWriter.setPageMargins(QMargins(30, 30, 30, 30));
+
+    QPainter painter(&pdfWriter);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    // 绘制图表到 PDF
+    chartView->render(&painter);
+
+    painter.end();
+
+    QMessageBox::information(this, QString::fromLocal8Bit("导出成功"), QString::fromLocal8Bit("图表已成功导出为 PDF 文件: ") + filePath);
+}
+
 void ReportDialog::exportToPdf()
 {
     QString filePath = QFileDialog::getSaveFileName(this, QString::fromLocal8Bit("导出报表为 PDF"), "", "PDF Files (*.pdf)");
@@ -142,28 +165,35 @@ void ReportDialog::exportToPdf()
     QPainter painter(&pdfWriter);
     painter.setRenderHint(QPainter::Antialiasing);
 
-    QRect statusRect = painter.viewport();
-    statusRect.setHeight(statusRect.height() / 2 - 15); // 分配上半部分给状态图
+    // 设置绘制区域
+    const QRectF pageRect = painter.viewport();
+    const qreal titleHeight = 40; // 为标题留出空间
+    const qreal chartSpacing = 15; // 图表之间的间距
+    const qreal availableHeight = pageRect.height() - titleHeight - chartSpacing;
+    const qreal chartHeight = availableHeight / 2.0;
 
-    QRect priorityRect = painter.viewport();
-    priorityRect.setTop(priorityRect.height() / 2 + 15); // 分配下半部分给优先级图
-    priorityRect.setHeight(priorityRect.height() / 2 - 15);
+    QRectF statusRect(pageRect.left(), pageRect.top() + titleHeight, pageRect.width(), chartHeight);
+    QRectF priorityRect(pageRect.left(), statusRect.bottom() + chartSpacing, pageRect.width(), chartHeight);
 
     // 绘制标题
-    painter.drawText(statusRect.adjusted(0, 0, 0, -statusRect.height() + 20), Qt::AlignCenter, QString::fromLocal8Bit("任务管理报表"));
+    painter.setFont(QFont("Arial", 16, QFont::Bold));
+    painter.drawText(QRectF(pageRect.left(), pageRect.top(), pageRect.width(), titleHeight), Qt::AlignCenter, QString::fromLocal8Bit("任务管理报表"));
+    painter.setFont(QFont()); // 恢复默认字体
 
     // 绘制状态图表
     if (m_statusChartView && m_statusChartView->chart()) {
-        m_statusChartView->render(&painter, statusRect.adjusted(0, 30, 0, 0)); // 留出标题空间
+        m_statusChartView->render(&painter, statusRect, m_statusChartView->rect()); // 绘制到指定区域
     } else {
         qWarning() << "Status chart view or chart is null, cannot export.";
+        painter.drawText(statusRect, Qt::AlignCenter, QString::fromLocal8Bit("状态图表无法加载"));
     }
 
     // 绘制优先级图表
     if (m_priorityChartView && m_priorityChartView->chart()) {
-        m_priorityChartView->render(&painter, priorityRect);
+        m_priorityChartView->render(&painter, priorityRect, m_priorityChartView->rect()); // 绘制到指定区域
     } else {
         qWarning() << "Priority chart view or chart is null, cannot export.";
+        painter.drawText(priorityRect, Qt::AlignCenter, QString::fromLocal8Bit("优先级图表无法加载"));
     }
 
     painter.end();

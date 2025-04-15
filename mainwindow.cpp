@@ -207,9 +207,7 @@ void MainWindow::initDatabase()
               "description TEXT, "
               "status INTEGER, "
               "priority INTEGER, "
-              "deadline TEXT, "
-              "x REAL, "
-              "y REAL)");
+              "deadline TEXT)");
 }
 
 void MainWindow::saveTasks()
@@ -221,8 +219,8 @@ void MainWindow::saveTasks()
     for (QGraphicsItem *item : items) {
         TaskCard *card = dynamic_cast<TaskCard*>(item);
         if (card) {
-            query.prepare("INSERT INTO tasks (title, description, status, priority, deadline, x, y) "
-                         "VALUES (:title, :description, :status, :priority, :deadline, :x, :y)");
+            query.prepare("INSERT INTO tasks (title, description, status, priority, deadline) "
+                         "VALUES (:title, :description, :status, :priority, :deadline)");
             query.bindValue(":title", card->title());
             query.bindValue(":description", card->description());
             query.bindValue(":status", card->status());
@@ -234,8 +232,6 @@ void MainWindow::saveTasks()
                 query.bindValue(":deadline", QVariant());
             }
             
-            query.bindValue(":x", card->pos().x());
-            query.bindValue(":y", card->pos().y());
             query.exec();
         }
     }
@@ -253,8 +249,9 @@ void MainWindow::loadTasks()
             delete item;
         }
     }
+    m_cards.clear(); // 清空内部列表
     
-    QSqlQuery query("SELECT title, description, status, priority, deadline, x, y FROM tasks");
+    QSqlQuery query("SELECT title, description, status, priority, deadline FROM tasks");
     
     if (!query.exec()) {
         qDebug() << "Query error: " << query.lastError();
@@ -273,16 +270,13 @@ void MainWindow::loadTasks()
             deadline = QDateTime::fromString(query.value(4).toString(), Qt::ISODate);
         }
         
-        qreal x = query.value(5).toDouble();
-        qreal y = query.value(6).toDouble();
-        
         TaskCard *card = new TaskCard(title, description, priority, status, deadline);
         // 连接信号与槽
         connect(card, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
         connect(card, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
         
-        card->setPos(x, y);
         m_scene->addItem(card);
+        m_cards.append(card); // 添加到内部列表
         count++;
     }
     
@@ -296,16 +290,16 @@ void MainWindow::loadTasks()
                                       TaskCard::Medium, TaskCard::Todo, QDateTime::currentDateTime().addDays(2));
         connect(todo1, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
         connect(todo1, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
-        todo1->setPos(todoColumn->rect().x() + 25, todoColumn->rect().y() + 50);
         m_scene->addItem(todo1);
+        m_cards.append(todo1);
         
         TaskCard *todo2 = new TaskCard(QString::fromLocal8Bit("学习Qt编程"), 
                                       QString::fromLocal8Bit("完成Qt GUI编程的基础学习，掌握信号与槽机制"), 
                                       TaskCard::High, TaskCard::Todo, QDateTime::currentDateTime().addDays(7));
         connect(todo2, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
         connect(todo2, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
-        todo2->setPos(todoColumn->rect().x() + 25, todoColumn->rect().y() + 200);
         m_scene->addItem(todo2);
+        m_cards.append(todo2);
         
         // 添加示例进行中任务
         TaskCard *inProgress = new TaskCard(QString::fromLocal8Bit("开发任务管理系统"), 
@@ -313,8 +307,8 @@ void MainWindow::loadTasks()
                                            TaskCard::High, TaskCard::InProgress, QDateTime::currentDateTime().addDays(5));
         connect(inProgress, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
         connect(inProgress, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
-        inProgress->setPos(inProgressColumn->rect().x() + 25, inProgressColumn->rect().y() + 50);
         m_scene->addItem(inProgress);
+        m_cards.append(inProgress);
         
         // 添加示例已完成任务
         TaskCard *done = new TaskCard(QString::fromLocal8Bit("需求分析"), 
@@ -322,9 +316,12 @@ void MainWindow::loadTasks()
                                      TaskCard::Medium, TaskCard::Done, QDateTime::currentDateTime().addDays(-2));
         connect(done, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
         connect(done, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
-        done->setPos(doneColumn->rect().x() + 25, doneColumn->rect().y() + 50);
         m_scene->addItem(done);
+        m_cards.append(done);
     }
+
+    // 在所有任务（加载的和示例的）都添加到场景后，调用 arrangeCards 进行布局
+    arrangeCards();
 }
 
 void MainWindow::arrangeCards()

@@ -28,23 +28,30 @@
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout">
       <item>
+       <widget class="QPushButton" name="reportButton">
+        <property name="text">
+         <string>生成报表</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="addButton">
         <property name="text">
-         <string>Add Task</string>
+         <string>添加任务</string>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QPushButton" name="deleteButton">
         <property name="text">
-         <string>Delete Task</string>
+         <string>删除任务</string>
         </property>
        </widget>
       </item>
       <item>
        <widget class="QPushButton" name="clearButton">
         <property name="text">
-         <string>Clear All</string>
+         <string>清空所有</string>
         </property>
        </widget>
       </item>
