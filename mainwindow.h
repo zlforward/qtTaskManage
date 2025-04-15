@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QGraphicsView>
 #include <QGraphicsScene>
+#include <QScrollArea>  // 添加滚动区域支持
 #include "ui_mainwindow.h"
 #include <QSqlDatabase>
 #include <QSqlQuery>
@@ -34,10 +35,15 @@ public:
 
 protected:
     void resizeEvent(QResizeEvent *event) override;
+    void wheelEvent(QWheelEvent *event) override;  // 添加鼠标滚轮事件处理
 
 public slots:
     // 处理卡片拖放，根据位置更新状态
     void updateCardStatusByPosition(TaskCard *card);
+    // 添加缩放槽函数
+    void zoomIn();
+    void zoomOut();
+    void resetZoom();
 
 private:
     //Ui_MainWindow* ui;
@@ -69,12 +75,19 @@ private:
     QDateTimeEdit *m_endDateEdit;
     QLineEdit *m_assigneeFilterEdit;
     
+    // 缩放相关
+    qreal m_zoomFactor;
+    const qreal ZOOM_FACTOR_STEP = 0.1;
+    const qreal MIN_ZOOM = 0.5;
+    const qreal MAX_ZOOM = 2.0;
+    
     void initDatabase();
     void saveTasks();
     void loadTasks();
     void setupColumns();
     void setupTaskDialog();
     void setupScene();
+    void setupZoomControls(); // 添加缩放控制设置
     
     // 创建新任务
     void createNewTask(const QString &title, const QString &description, 
@@ -88,6 +101,15 @@ private:
     TaskCard::Status getStatusFromPosition(qreal x);
 
     void applyFilters(); // Add filter application method
+    
+    // 显示任务详情对话框
+    void showTaskDetails(TaskCard* card);
+    
+    // 绘制依赖关系线条
+    void drawDependencyLines(TaskCard* card);
+    
+    // 管理任务依赖关系
+    void manageDependencies(TaskCard* card);
 
 private slots:
     void onAddButtonClicked();
