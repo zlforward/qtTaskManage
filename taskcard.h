@@ -6,6 +6,7 @@
 #include <QLabel>
 #include <QString>
 #include <QDateTime>
+#include <QTimer>
 
 class TaskCard : public QGraphicsWidget
 {
@@ -19,6 +20,7 @@ public:
                      Priority priority = Medium, 
                      Status status = Todo,
                      const QDateTime &deadline = QDateTime(), 
+                     const QString &assignee = QString(),
                      QGraphicsItem *parent = nullptr);
 
     void setTitle(const QString &title);
@@ -32,6 +34,8 @@ public:
     void setDeadline(const QDateTime &deadline);
     QDateTime deadline() const;
     bool isSelected() const;
+    void setAssignee(const QString &assignee);
+    QString assignee() const;
     
     // 导出任务为JSON格式
     QString toJson() const;
@@ -53,15 +57,26 @@ private:
     Status m_status;
     Priority m_priority;
     QDateTime m_deadline;
+    QString m_assignee;
     QGraphicsLinearLayout *m_layout;
     QPointF m_dragStartPos;
     bool m_selected;
     qreal m_opacity;  // 透明度属性
 
+    // 添加发光效果相关成员
+    QTimer *m_glowTimer;
+    qreal m_glowIntensity;
+    bool m_glowIncreasing;
+
     // 根据优先级获取颜色
     QColor getPriorityColor() const;
     // 渲染任务卡片
     void renderCardContent(QPainter *painter, const QRectF &rect);
+    void drawGlowingText(QPainter *painter, const QRectF &rect, const QString &text, 
+                        const QFont &font, const QColor &color, Qt::Alignment alignment = Qt::AlignLeft);
+
+private slots:
+    void updateGlowEffect();
 };
 
 #endif // TASKCARD_H

@@ -12,10 +12,11 @@
 #include <QDesktopWidget>
 #include <QStyle>
 #include "reportdialog.h"
+#include <QScreen>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
-      ui(new Ui::MainWindow),
+    ui(new Ui::MainWindow),
       todoColumn(nullptr),
       inProgressColumn(nullptr),
       doneColumn(nullptr),
@@ -26,41 +27,47 @@ MainWindow::MainWindow(QWidget *parent)
       m_deadlineEdit(nullptr),
       m_statusCombo(nullptr),
       m_currentEditCard(nullptr),
-      m_scene(nullptr)
+      m_scene(nullptr),
+      m_assigneeEdit(nullptr),
+      m_startDateEdit(nullptr),
+      m_endDateEdit(nullptr),
+      m_assigneeFilterEdit(nullptr)
 {
     ui->setupUi(this);
-    setMinimumSize(1200, 800);
+    showMaximized();
     setWindowTitle(QString::fromLocal8Bit("任务管理系统"));
     
-    // 创建场景和视图
     m_scene = new QGraphicsScene(this);
     ui->graphicsView->setScene(m_scene);
-    ui->graphicsView->setSceneRect(0, 0, 1150, 700);
+   // ui->graphicsView->setSceneRect(0, 0, 3200, 1600);
     
-    // 设置深蓝色背景（与图片中的风格一致）
     QLinearGradient gradient(0, 0, 0, ui->graphicsView->height());
-    gradient.setColorAt(0, QColor(10, 35, 80));
-    gradient.setColorAt(1, QColor(5, 15, 40));
+    gradient.setColorAt(0, QColor(10, 35, 80));  // 深蓝色渐变起始色
+    gradient.setColorAt(1, QColor(5, 15, 40));   // 深蓝色渐变结束色
     m_scene->setBackgroundBrush(gradient);
     
-    // 启用拖动和缩放功能
     ui->graphicsView->setDragMode(QGraphicsView::ScrollHandDrag);
     ui->graphicsView->setRenderHint(QPainter::Antialiasing);
     ui->graphicsView->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
     
-    // 创建状态列
     setupColumns();
     
-    // 创建任务对话框
     setupTaskDialog();
     
-    // 连接按钮信号与槽
+    m_startDateEdit = ui->startDateEdit;
+    m_endDateEdit = ui->endDateEdit;
+    m_assigneeFilterEdit = ui->assigneeFilterEdit;
+
+    m_startDateEdit->setDateTime(QDateTime::currentDateTime().addMonths(-1));
+    m_endDateEdit->setDateTime(QDateTime::currentDateTime().addMonths(1));
+    
     connect(ui->addButton, &QPushButton::clicked, this, &MainWindow::onAddButtonClicked);
     connect(ui->deleteButton, &QPushButton::clicked, this, &MainWindow::onDeleteButtonClicked);
     connect(ui->clearButton, &QPushButton::clicked, this, &MainWindow::onClearButtonClicked);
     connect(ui->reportButton, &QPushButton::clicked, this, &MainWindow::onReportButtonClicked);
+    connect(ui->filterButton, &QPushButton::clicked, this, &MainWindow::onFilterButtonClicked);
+    connect(ui->clearFilterButton, &QPushButton::clicked, this, &MainWindow::onClearFilterButtonClicked);
     
-    // 初始化数据库并加载任务
     initDatabase();
     loadTasks();
     setupScene();
@@ -70,7 +77,6 @@ MainWindow::~MainWindow()
 {
     saveTasks();
     
-    // 清理资源
     if (m_taskDialog) {
         delete m_taskDialog;
         m_taskDialog = nullptr;
@@ -81,95 +87,97 @@ MainWindow::~MainWindow()
 
 void MainWindow::setupColumns()
 {
-    // 列的宽度和高度
-    const int columnWidth = 350;
+    const int columnWidth = 450;  // 固定列宽
     const int columnHeight = 650;
     const int columnSpacing = 30;
+    const int leftMargin = 30;    // 左边距
     
-    // 创建列标题文本
+    // 设置场景大小
+    m_scene->setSceneRect(0, 0, leftMargin * 2 + columnWidth * 3 + columnSpacing * 2, columnHeight + 100);
+    
     QGraphicsTextItem *todoTitle = m_scene->addText(QString::fromLocal8Bit("待办任务"), QFont(QString::fromLocal8Bit("微软雅黑"), 16, QFont::Bold));
-    todoTitle->setDefaultTextColor(Qt::white);
-    todoTitle->setPos(40, 30);
+    todoTitle->setDefaultTextColor(QColor(220, 220, 220));
+    todoTitle->setPos(leftMargin, 30);
     
     QGraphicsTextItem *inProgressTitle = m_scene->addText(QString::fromLocal8Bit("进行中"), QFont(QString::fromLocal8Bit("微软雅黑"), 16, QFont::Bold));
-    inProgressTitle->setDefaultTextColor(Qt::white);
-    inProgressTitle->setPos(40 + columnWidth + columnSpacing, 30);
+    inProgressTitle->setDefaultTextColor(QColor(220, 220, 220));
+    inProgressTitle->setPos(leftMargin + columnWidth + columnSpacing, 30);
     
     QGraphicsTextItem *doneTitle = m_scene->addText(QString::fromLocal8Bit("已完成"), QFont(QString::fromLocal8Bit("微软雅黑"), 16, QFont::Bold));
-    doneTitle->setDefaultTextColor(Qt::white);
-    doneTitle->setPos(40 + (columnWidth + columnSpacing) * 2, 30);
+    doneTitle->setDefaultTextColor(QColor(220, 220, 220));
+    doneTitle->setPos(leftMargin + (columnWidth + columnSpacing) * 2, 30);
     
-    // 创建三个区域用于放置不同状态的任务
-    QPen columnPen(QColor(255, 255, 255, 30));
-    QBrush columnBrush(QColor(255, 255, 255, 15));
+    // 列的边框和背景色
+    QPen columnPen(QColor(255, 255, 255, 20));
+    QBrush columnBrush(QColor(255, 255, 255, 8));
     
-    todoColumn = m_scene->addRect(40, 70, columnWidth, columnHeight, columnPen, columnBrush);
-    inProgressColumn = m_scene->addRect(40 + columnWidth + columnSpacing, 70, columnWidth, columnHeight, columnPen, columnBrush);
-    doneColumn = m_scene->addRect(40 + (columnWidth + columnSpacing) * 2, 70, columnWidth, columnHeight, columnPen, columnBrush);
+    todoColumn = m_scene->addRect(leftMargin, 70, columnWidth, columnHeight, columnPen, columnBrush);
+    inProgressColumn = m_scene->addRect(leftMargin + columnWidth + columnSpacing, 70, columnWidth, columnHeight, columnPen, columnBrush);
+    doneColumn = m_scene->addRect(leftMargin + (columnWidth + columnSpacing) * 2, 70, columnWidth, columnHeight, columnPen, columnBrush);
 }
 
 void MainWindow::setupTaskDialog()
 {
-    // 确保 m_taskDialog 已正确创建
     if (m_taskDialog) {
         delete m_taskDialog;
         m_taskDialog = nullptr;
     }
     
-    // 使用QDialog而不是QWidget，QDialog对模态行为处理更好
     m_taskDialog = new QDialog(this);
     m_taskDialog->setWindowTitle(QString::fromLocal8Bit("创建新任务"));
     m_taskDialog->setMinimumWidth(400);
     
-    // 设置为应用程序模态，这样用户必须先处理这个对话框
+    // 设置对话框背景色
+    QPalette dlgPalette = m_taskDialog->palette();
+    dlgPalette.setColor(QPalette::Window, QColor(10, 35, 80));
+    dlgPalette.setColor(QPalette::WindowText, QColor(220, 220, 220));
+    dlgPalette.setColor(QPalette::Base, QColor(15, 45, 90));
+    dlgPalette.setColor(QPalette::Text, QColor(220, 220, 220));
+    m_taskDialog->setPalette(dlgPalette);
+    m_taskDialog->setAutoFillBackground(true);
+
     m_taskDialog->setModal(true);
     
-    // 设置对话框在显示时始终处于窗口的中央
     m_taskDialog->setWindowFlags(Qt::Dialog | Qt::WindowStaysOnTopHint | Qt::MSWindowsFixedSizeDialogHint);
     
-    // 避免对话框关闭时被删除
     m_taskDialog->setAttribute(Qt::WA_DeleteOnClose, false);
     
-    // 设置对话框位置居中
     QSize dialogSize(400, 300);
     m_taskDialog->resize(dialogSize);
     
     QVBoxLayout *layout = new QVBoxLayout(m_taskDialog);
     QFormLayout *formLayout = new QFormLayout();
     
-    // 任务标题
     m_titleEdit = new QLineEdit(m_taskDialog);
     formLayout->addRow(QString::fromLocal8Bit("任务标题:"), m_titleEdit);
     
-    // 任务描述
     m_descEdit = new QTextEdit(m_taskDialog);
     m_descEdit->setMaximumHeight(100);
     formLayout->addRow(QString::fromLocal8Bit("任务描述:"), m_descEdit);
     
-    // 任务优先级
     m_priorityCombo = new QComboBox(m_taskDialog);
     m_priorityCombo->addItem(QString::fromLocal8Bit("低"), TaskCard::Low);
     m_priorityCombo->addItem(QString::fromLocal8Bit("中"), TaskCard::Medium);
     m_priorityCombo->addItem(QString::fromLocal8Bit("高"), TaskCard::High);
-    m_priorityCombo->setCurrentIndex(1); // 默认为中优先级
+    m_priorityCombo->setCurrentIndex(1);
     formLayout->addRow(QString::fromLocal8Bit("优先级:"), m_priorityCombo);
     
-    // 任务状态
     m_statusCombo = new QComboBox(m_taskDialog);
     m_statusCombo->addItem(QString::fromLocal8Bit("待办"), TaskCard::Todo);
     m_statusCombo->addItem(QString::fromLocal8Bit("进行中"), TaskCard::InProgress);
     m_statusCombo->addItem(QString::fromLocal8Bit("已完成"), TaskCard::Done);
-    m_statusCombo->setCurrentIndex(0); // 默认为待办状态
+    m_statusCombo->setCurrentIndex(0);
     formLayout->addRow(QString::fromLocal8Bit("状态:"), m_statusCombo);
     
-    // 截止日期
     m_deadlineEdit = new QDateTimeEdit(QDateTime::currentDateTime().addDays(7), m_taskDialog);
     m_deadlineEdit->setCalendarPopup(true);
     formLayout->addRow(QString::fromLocal8Bit("截止日期:"), m_deadlineEdit);
     
+    m_assigneeEdit = new QLineEdit(m_taskDialog);
+    formLayout->addRow(QString::fromLocal8Bit("执行人:"), m_assigneeEdit);
+    
     layout->addLayout(formLayout);
     
-    // 按钮区域
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     QPushButton *cancelButton = new QPushButton(QString::fromLocal8Bit("取消"), m_taskDialog);
     QPushButton *okButton = new QPushButton(QString::fromLocal8Bit("确定"), m_taskDialog);
@@ -178,12 +186,10 @@ void MainWindow::setupTaskDialog()
     buttonLayout->addWidget(okButton);
     layout->addLayout(buttonLayout);
     
-    // 连接信号和槽
     connect(cancelButton, &QPushButton::clicked, m_taskDialog, &QDialog::reject);
     connect(okButton, &QPushButton::clicked, this, &MainWindow::onTaskDialogAccepted);
     connect(m_taskDialog, &QDialog::rejected, [this]() {
-        // 对话框被拒绝（取消）时刷新场景
-        m_currentEditCard = nullptr; // 重置当前编辑卡片
+        m_currentEditCard = nullptr;
         m_scene->update();
         ui->graphicsView->viewport()->update();
     });
@@ -207,7 +213,8 @@ void MainWindow::initDatabase()
               "description TEXT, "
               "status INTEGER, "
               "priority INTEGER, "
-              "deadline TEXT)");
+              "deadline TEXT, "
+              "assignee TEXT)");
 }
 
 void MainWindow::saveTasks()
@@ -219,8 +226,8 @@ void MainWindow::saveTasks()
     for (QGraphicsItem *item : items) {
         TaskCard *card = dynamic_cast<TaskCard*>(item);
         if (card) {
-            query.prepare("INSERT INTO tasks (title, description, status, priority, deadline) "
-                         "VALUES (:title, :description, :status, :priority, :deadline)");
+            query.prepare("INSERT INTO tasks (title, description, status, priority, deadline, assignee) "
+                         "VALUES (:title, :description, :status, :priority, :deadline, :assignee)");
             query.bindValue(":title", card->title());
             query.bindValue(":description", card->description());
             query.bindValue(":status", card->status());
@@ -232,6 +239,8 @@ void MainWindow::saveTasks()
                 query.bindValue(":deadline", QVariant());
             }
             
+            query.bindValue(":assignee", card->assignee());
+            
             query.exec();
         }
     }
@@ -241,7 +250,6 @@ void MainWindow::loadTasks()
 {
     qDebug() << "Loading tasks from database";
     
-    // 移除场景中所有的任务卡片
     QList<QGraphicsItem*> items = m_scene->items();
     for (QGraphicsItem *item : items) {
         if (dynamic_cast<TaskCard*>(item)) {
@@ -249,9 +257,9 @@ void MainWindow::loadTasks()
             delete item;
         }
     }
-    m_cards.clear(); // 清空内部列表
+    m_cards.clear();
     
-    QSqlQuery query("SELECT title, description, status, priority, deadline FROM tasks");
+    QSqlQuery query("SELECT title, description, status, priority, deadline, assignee FROM tasks");
     
     if (!query.exec()) {
         qDebug() << "Query error: " << query.lastError();
@@ -270,24 +278,23 @@ void MainWindow::loadTasks()
             deadline = QDateTime::fromString(query.value(4).toString(), Qt::ISODate);
         }
         
-        TaskCard *card = new TaskCard(title, description, priority, status, deadline);
-        // 连接信号与槽
+        QString assignee = query.value(5).toString();
+        
+        TaskCard *card = new TaskCard(title, description, priority, status, deadline, assignee);
         connect(card, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
         connect(card, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
         
         m_scene->addItem(card);
-        m_cards.append(card); // 添加到内部列表
+        m_cards.append(card);
         count++;
     }
     
     qDebug() << "Loaded " << count << " tasks";
     
-    // 如果没有任务，添加一些示例任务
     if (count == 0) {
-        // 添加示例待办任务
         TaskCard *todo1 = new TaskCard(QString::fromLocal8Bit("完成项目计划"), 
                                       QString::fromLocal8Bit("制定详细的项目实施计划，包括时间表和资源分配"), 
-                                      TaskCard::Medium, TaskCard::Todo, QDateTime::currentDateTime().addDays(2));
+                                      TaskCard::Medium, TaskCard::Todo, QDateTime::currentDateTime().addDays(2), QString::fromLocal8Bit("张三"));
         connect(todo1, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
         connect(todo1, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
         m_scene->addItem(todo1);
@@ -295,80 +302,74 @@ void MainWindow::loadTasks()
         
         TaskCard *todo2 = new TaskCard(QString::fromLocal8Bit("学习Qt编程"), 
                                       QString::fromLocal8Bit("完成Qt GUI编程的基础学习，掌握信号与槽机制"), 
-                                      TaskCard::High, TaskCard::Todo, QDateTime::currentDateTime().addDays(7));
+                                      TaskCard::High, TaskCard::Todo, QDateTime::currentDateTime().addDays(7), QString::fromLocal8Bit("李四"));
         connect(todo2, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
         connect(todo2, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
         m_scene->addItem(todo2);
         m_cards.append(todo2);
         
-        // 添加示例进行中任务
         TaskCard *inProgress = new TaskCard(QString::fromLocal8Bit("开发任务管理系统"), 
                                            QString::fromLocal8Bit("实现基本的任务管理功能，包括创建、编辑和删除任务"), 
-                                           TaskCard::High, TaskCard::InProgress, QDateTime::currentDateTime().addDays(5));
+                                           TaskCard::High, TaskCard::InProgress, QDateTime::currentDateTime().addDays(5), QString::fromLocal8Bit("王五"));
         connect(inProgress, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
         connect(inProgress, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
         m_scene->addItem(inProgress);
         m_cards.append(inProgress);
         
-        // 添加示例已完成任务
         TaskCard *done = new TaskCard(QString::fromLocal8Bit("需求分析"), 
                                      QString::fromLocal8Bit("分析用户需求，确定系统功能和界面设计"), 
-                                     TaskCard::Medium, TaskCard::Done, QDateTime::currentDateTime().addDays(-2));
+                                     TaskCard::Medium, TaskCard::Done, QDateTime::currentDateTime().addDays(-2), QString::fromLocal8Bit("张三"));
         connect(done, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
         connect(done, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
         m_scene->addItem(done);
         m_cards.append(done);
     }
 
-    // 在所有任务（加载的和示例的）都添加到场景后，调用 arrangeCards 进行布局
     arrangeCards();
 }
 
 void MainWindow::arrangeCards()
 {
-    // 在每一列中整理卡片位置
     const int cardSpacing = 20;
-    int todoY = todoColumn->rect().y() + 20;
-    int inProgressY = inProgressColumn->rect().y() + 20;
-    int doneY = doneColumn->rect().y() + 20;
+    qreal todoY = todoColumn->rect().y() + 20;
+    qreal inProgressY = inProgressColumn->rect().y() + 20;
+    qreal doneY = doneColumn->rect().y() + 20;
     
     QList<QGraphicsItem*> items = m_scene->items();
+    QList<TaskCard*> todoCards;
+    QList<TaskCard*> inProgressCards;
+    QList<TaskCard*> doneCards;
+
     for (QGraphicsItem *item : items) {
         TaskCard *card = dynamic_cast<TaskCard*>(item);
-        if (card) {
-            qreal x = 0;
-            qreal y = 0;
-            
+        if (card && card->isVisible()) {
             switch (card->status()) {
-                case TaskCard::Todo:
-                    x = todoColumn->rect().x() + 25;
-                    y = todoY;
-                    todoY += card->boundingRect().height() + cardSpacing;
-                    break;
-                case TaskCard::InProgress:
-                    x = inProgressColumn->rect().x() + 25;
-                    y = inProgressY;
-                    inProgressY += card->boundingRect().height() + cardSpacing;
-                    break;
-                case TaskCard::Done:
-                    x = doneColumn->rect().x() + 25;
-                    y = doneY;
-                    doneY += card->boundingRect().height() + cardSpacing;
-                    break;
+                case TaskCard::Todo: todoCards.append(card); break;
+                case TaskCard::InProgress: inProgressCards.append(card); break;
+                case TaskCard::Done: doneCards.append(card); break;
             }
-            
-            card->setPos(x, y);
         }
+    }
+
+    for (TaskCard *card : todoCards) {
+        card->setPos(todoColumn->rect().x() + 25, todoY);
+        todoY += card->boundingRect().height() + cardSpacing;
+    }
+    for (TaskCard *card : inProgressCards) {
+        card->setPos(inProgressColumn->rect().x() + 25, inProgressY);
+        inProgressY += card->boundingRect().height() + cardSpacing;
+    }
+    for (TaskCard *card : doneCards) {
+        card->setPos(doneColumn->rect().x() + 25, doneY);
+        doneY += card->boundingRect().height() + cardSpacing;
     }
 }
 
 TaskCard::Status MainWindow::getStatusFromPosition(qreal x)
 {
-    // 获取场景宽度并计算每列宽度
     qreal sceneWidth = m_scene->width();
     qreal columnWidth = sceneWidth / 3;
     
-    // 根据x坐标确定状态
     if (x < columnWidth) {
         return TaskCard::Todo;
     } else if (x < 2 * columnWidth) {
@@ -380,20 +381,17 @@ TaskCard::Status MainWindow::getStatusFromPosition(qreal x)
 
 void MainWindow::onAddButtonClicked()
 {
-    // 清除当前编辑卡片的引用
     m_currentEditCard = nullptr;
     
-    // 设置对话框标题为添加任务
     m_taskDialog->setWindowTitle(QString::fromLocal8Bit("添加任务"));
     
-    // 重置表单
     m_titleEdit->clear();
     m_descEdit->clear();
-    m_priorityCombo->setCurrentIndex(0); // 低优先级
-    m_statusCombo->setCurrentIndex(0);   // 待办状态
+    m_priorityCombo->setCurrentIndex(0);
+    m_statusCombo->setCurrentIndex(0);
     m_deadlineEdit->setDateTime(QDateTime::currentDateTime().addDays(7));
+    m_assigneeEdit->clear();
     
-    // 居中显示对话框
     m_taskDialog->setGeometry(
         QStyle::alignedRect(
             Qt::LeftToRight,
@@ -403,7 +401,6 @@ void MainWindow::onAddButtonClicked()
         )
     );
     
-    // 执行对话框（模态显示）
     m_taskDialog->exec();
 }
 
@@ -436,56 +433,48 @@ void MainWindow::onTaskDialogAccepted()
         default: status = TaskCard::Todo;
     }
     
-    // 如果是编辑已有卡片
+    QString assignee = m_assigneeEdit->text().trimmed();
+    
     if (m_currentEditCard) {
         m_currentEditCard->setTitle(title);
         m_currentEditCard->setDescription(description);
         m_currentEditCard->setPriority(priority);
         m_currentEditCard->setStatus(status);
         m_currentEditCard->setDeadline(deadline);
+        m_currentEditCard->setAssignee(assignee);
         
-        // 清除当前编辑卡片的引用
         m_currentEditCard = nullptr;
         
-        // 重新排列卡片
         arrangeCards();
     } 
-    // 如果是添加新卡片
     else {
-        createNewTask(title, description, priority, status, deadline);
+        createNewTask(title, description, priority, status, deadline, assignee);
     }
     
-    // 保存任务到数据库
     saveTasks();
     
-    // 接受对话框，对话框会自动关闭
     m_taskDialog->accept();
     
-    // 刷新场景显示
     m_scene->update();
 }
 
 void MainWindow::createNewTask(const QString &title, const QString &description, 
                              TaskCard::Priority priority, TaskCard::Status status, 
-                             const QDateTime &deadline)
+                             const QDateTime &deadline, const QString &assignee)
 {
-    TaskCard *card = new TaskCard(title, description, priority, status, deadline);
+    TaskCard *card = new TaskCard(title, description, priority, status, deadline, assignee);
     
-    // 连接卡片的信号与槽
     connect(card, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
     connect(card, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
     
-    // 设置卡片的初始位置(根据status确定列)
     m_scene->addItem(card);
     m_cards.append(card);
     
-    // 重新排列卡片
     arrangeCards();
 }
 
 void MainWindow::onDeleteButtonClicked()
 {
-    // 删除选中的任务
     QList<QGraphicsItem*> selectedItems = m_scene->selectedItems();
     for (QGraphicsItem* item : selectedItems) {
         TaskCard* task = dynamic_cast<TaskCard*>(item);
@@ -495,20 +484,16 @@ void MainWindow::onDeleteButtonClicked()
         }
     }
     
-    // 重新排列卡片
     arrangeCards();
     
-    // 保存到数据库
     saveTasks();
 }
 
 void MainWindow::onClearButtonClicked()
 {
-    // 清空数据库和场景中的所有任务
     QSqlQuery query;
     query.exec("DELETE FROM tasks");
     
-    // 清除场景中的所有任务卡片
     QList<QGraphicsItem*> items = m_scene->items();
     for (QGraphicsItem* item : items) {
         if (dynamic_cast<TaskCard*>(item)) {
@@ -520,34 +505,29 @@ void MainWindow::onClearButtonClicked()
 
 void MainWindow::onCardDoubleClicked(TaskCard *card)
 {
-    // 记录当前正在编辑的卡片
     m_currentEditCard = card;
     
-    // 设置对话框标题为编辑任务
     m_taskDialog->setWindowTitle(QString::fromLocal8Bit("编辑任务"));
     
-    // 填充表单数据
     m_titleEdit->setText(card->title());
     m_descEdit->setText(card->description());
     
-    // 设置优先级
     switch (card->priority()) {
         case TaskCard::Low: m_priorityCombo->setCurrentIndex(0); break;
         case TaskCard::Medium: m_priorityCombo->setCurrentIndex(1); break;
         case TaskCard::High: m_priorityCombo->setCurrentIndex(2); break;
     }
     
-    // 设置状态
     switch (card->status()) {
         case TaskCard::Todo: m_statusCombo->setCurrentIndex(0); break;
         case TaskCard::InProgress: m_statusCombo->setCurrentIndex(1); break;
         case TaskCard::Done: m_statusCombo->setCurrentIndex(2); break;
     }
     
-    // 设置截止日期
     m_deadlineEdit->setDateTime(card->deadline());
     
-    // 居中显示对话框
+    m_assigneeEdit->setText(card->assignee());
+    
     m_taskDialog->setGeometry(
         QStyle::alignedRect(
             Qt::LeftToRight,
@@ -557,33 +537,26 @@ void MainWindow::onCardDoubleClicked(TaskCard *card)
         )
     );
     
-    // 执行对话框（模态显示）
     m_taskDialog->exec();
 }
 
 void MainWindow::updateCardStatusByPosition(TaskCard *card)
 {
-    // 获取卡片当前位置
     QPointF pos = card->scenePos();
     
-    // 确定卡片应该属于哪个状态列
     TaskCard::Status newStatus = getStatusFromPosition(pos.x());
     
-    // 如果状态变化了，更新卡片状态
     if (card->status() != newStatus) {
         card->setStatus(newStatus);
         
-        // 重新排列卡片
         arrangeCards();
         
-        // 保存到数据库
         saveTasks();
     }
 }
 
 void MainWindow::onReportButtonClicked()
 {
-    // 收集所有任务卡片数据
     QList<TaskCard*> currentCards;
     QList<QGraphicsItem*> items = m_scene->items();
     for (QGraphicsItem *item : items) {
@@ -593,24 +566,106 @@ void MainWindow::onReportButtonClicked()
         }
     }
 
-    // 创建并显示报表对话框
     ReportDialog reportDialog(currentCards, this);
-    reportDialog.exec(); // 使用 exec() 使其成为模态对话框
+    reportDialog.exec();
 }
 
 void MainWindow::setupScene()
 {
-    // 连接现有卡片的信号
+    // 设置主窗口背景色
+    QPalette pal = palette();
+    pal.setColor(QPalette::Window, QColor(5, 15, 40));
+    setPalette(pal);
+    setAutoFillBackground(true);
+
+    // 设置底部区域的样式
+    QString bottomStyle = QString(
+        "QWidget {"
+        "   background-color: rgb(10, 35, 80);"
+        "   color: rgb(220, 220, 220);"
+        "}"
+        "QLineEdit, QDateTimeEdit {"
+        "   background-color: rgb(15, 45, 90);"
+        "   border: 1px solid rgb(30, 60, 110);"
+        "   color: rgb(220, 220, 220);"
+        "   padding: 2px;"
+        "}"
+        "QPushButton {"
+        "   background-color: rgb(24, 110, 165);"
+        "   border: 1px solid rgb(41, 128, 185);"
+        "   color: rgb(220, 220, 220);"
+        "   padding: 5px 15px;"
+        "   border-radius: 3px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: rgb(41, 128, 185);"
+        "}"
+        "QPushButton:pressed {"
+        "   background-color: rgb(15, 89, 145);"
+        "}"
+    );
+    
+    ui->centralWidget->setStyleSheet(bottomStyle);
+
     QList<QGraphicsItem*> items = m_scene->items();
     for (QGraphicsItem *item : items) {
         TaskCard *card = dynamic_cast<TaskCard*>(item);
         if (card) {
-            // 确保断开旧连接，避免重复连接
             disconnect(card, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
             disconnect(card, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
-            // 重新连接
             connect(card, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
             connect(card, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
         }
     }
+}
+
+void MainWindow::applyFilters()
+{
+    QDateTime startDate = m_startDateEdit->dateTime();
+    QDateTime endDate = m_endDateEdit->dateTime();
+    QString assigneeFilter = m_assigneeFilterEdit->text().trimmed();
+
+    for (QGraphicsItem *item : m_scene->items()) {
+        TaskCard *card = dynamic_cast<TaskCard*>(item);
+        if (card) {
+            bool dateMatch = true;
+            if (card->deadline().isValid()) {
+                dateMatch = (!startDate.isValid() || card->deadline() >= startDate) && 
+                            (!endDate.isValid() || card->deadline() <= endDate);
+            }
+            
+            bool assigneeMatch = assigneeFilter.isEmpty() || 
+                                 card->assignee().contains(assigneeFilter, Qt::CaseInsensitive);
+
+            card->setVisible(dateMatch && assigneeMatch);
+        }
+    }
+    arrangeCards();
+}
+
+void MainWindow::onFilterButtonClicked()
+{
+    applyFilters();
+}
+
+void MainWindow::onClearFilterButtonClicked()
+{
+    m_startDateEdit->setDateTime(QDateTime::currentDateTime().addMonths(-1));
+    m_endDateEdit->setDateTime(QDateTime::currentDateTime().addMonths(1));
+    m_assigneeFilterEdit->clear();
+    
+    for (QGraphicsItem *item : m_scene->items()) {
+         TaskCard *card = dynamic_cast<TaskCard*>(item);
+         if (card) {
+             card->setVisible(true);
+         }
+     }
+    
+    arrangeCards();
+}
+
+// 移除 resizeEvent，因为不再需要自适应布局
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
 }
