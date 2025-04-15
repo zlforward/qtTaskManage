@@ -22,6 +22,7 @@
 #include <QLabel>
 #include <QList>
 #include "taskcard.h"
+#include "reportdialog.h"
 
 class MainWindow : public QMainWindow
 {
@@ -80,6 +81,7 @@ private slots:
     void onAddButtonClicked();
     void onDeleteButtonClicked();
     void onClearButtonClicked();
+    void onReportButtonClicked();
     void onTaskDialogAccepted();
     
     // 处理卡片双击事件

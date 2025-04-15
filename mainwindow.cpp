@@ -11,6 +11,7 @@
 #include <QApplication>
 #include <QDesktopWidget>
 #include <QStyle>
+#include "reportdialog.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent),
@@ -57,10 +58,12 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->addButton, &QPushButton::clicked, this, &MainWindow::onAddButtonClicked);
     connect(ui->deleteButton, &QPushButton::clicked, this, &MainWindow::onDeleteButtonClicked);
     connect(ui->clearButton, &QPushButton::clicked, this, &MainWindow::onClearButtonClicked);
+    connect(ui->reportButton, &QPushButton::clicked, this, &MainWindow::onReportButtonClicked);
     
     // 初始化数据库并加载任务
     initDatabase();
     loadTasks();
+    setupScene();
 }
 
 MainWindow::~MainWindow()
@@ -581,10 +584,36 @@ void MainWindow::updateCardStatusByPosition(TaskCard *card)
     }
 }
 
+void MainWindow::onReportButtonClicked()
+{
+    // 收集所有任务卡片数据
+    QList<TaskCard*> currentCards;
+    QList<QGraphicsItem*> items = m_scene->items();
+    for (QGraphicsItem *item : items) {
+        TaskCard *card = dynamic_cast<TaskCard*>(item);
+        if (card) {
+            currentCards.append(card);
+        }
+    }
+
+    // 创建并显示报表对话框
+    ReportDialog reportDialog(currentCards, this);
+    reportDialog.exec(); // 使用 exec() 使其成为模态对话框
+}
+
 void MainWindow::setupScene()
 {
-    // 遍历已有卡片，连接双击信号
-    for (TaskCard *card : m_cards) {
-        connect(card, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
+    // 连接现有卡片的信号
+    QList<QGraphicsItem*> items = m_scene->items();
+    for (QGraphicsItem *item : items) {
+        TaskCard *card = dynamic_cast<TaskCard*>(item);
+        if (card) {
+            // 确保断开旧连接，避免重复连接
+            disconnect(card, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
+            disconnect(card, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
+            // 重新连接
+            connect(card, &TaskCard::cardDoubleClicked, this, &MainWindow::onCardDoubleClicked);
+            connect(card, &TaskCard::cardReleased, this, &MainWindow::updateCardStatusByPosition);
+        }
     }
 }
