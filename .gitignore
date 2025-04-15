@@ -1,0 +1,61 @@
+# Qt项目生成的文件
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+*.moc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+Makefile*
+*build-*
+*-build-*
+
+# Visual Studio生成的文件
+*.obj
+*.exe
+*.ilk
+*.pdb
+*.user
+*.aps
+*.pch
+*.vspscc
+*_i.c
+*_p.c
+*.ncb
+*.suo
+*.tlb
+*.tlh
+*.bak
+*.cache
+*.ilk
+*.log
+*.lib
+*.sbr
+*.sdf
+*.opensdf
+*.unsuccessfulbuild
+ipch/
+[Oo]bj/
+[Bb]in/
+[Dd]ebug*/
+[Rr]elease*/
+Ankh.NoLoad
+*.VC.db
+*.VC.opendb
+.vs/
+
+# 编译后的目录
+x64/
+x86/
+Win32/
+Debug/
+Release/
+
+# SQLite数据库文件
+*.db
+*.sqlite
+
+# 其他文件
+*.DS_Store
+Thumbs.db 
